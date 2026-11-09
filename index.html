@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Karty">
+<title>Moje karty</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{--bg:#f2f2f7;--fg:#111;--mut:#6b6b73;--sur:#fff;--acc:#0a84ff;--bd:#d8d8de;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--fg:#f5f5f7;--mut:#98989f;--sur:#1c1c1e;--bd:#38383a}}
+:root[data-theme="dark"]{--bg:#000;--fg:#f5f5f7;--mut:#98989f;--sur:#1c1c1e;--bd:#38383a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+h1{font-size:28px;margin:0}
+button{font:inherit;border:0;border-radius:12px;padding:10px 16px;background:var(--acc);color:#fff;font-weight:600}
+button.sec{background:var(--sur);color:var(--fg);border:1px solid var(--bd)}
+button.del{background:#ff3b30}
+.card{border-radius:16px;padding:18px;margin-bottom:12px;color:#fff;min-height:96px;display:flex;flex-direction:column;justify-content:space-between}
+.card b{font-size:20px}.card span{opacity:.85;font-size:14px;letter-spacing:1px}
+.empty{color:var(--mut);text-align:center;margin-top:60px;line-height:1.5}
+#ov{position:fixed;inset:0;background:var(--bg);display:none;overflow:auto;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
+#ov.on{display:block}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--sur);color:var(--fg)}
+.cols{display:flex;gap:10px;margin-top:14px}.cols>*{flex:1}
+.sw{display:flex;gap:10px;margin-top:6px}
+.sw i{width:34px;height:34px;border-radius:50%;border:3px solid transparent}
+.sw i.on{border-color:var(--fg)}
+.code{background:#fff;border-radius:16px;padding:16px;text-align:center;margin:16px 0}
+.code svg{max-width:100%;height:auto}
+.hint{color:var(--mut);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<header><h1>Moje karty</h1><button id="add">+ Dodaj</button></header>
+<div id="list"></div>
+<p class="hint" style="margin-top:24px"><a href="#" id="bk" style="color:var(--acc)">Kopia zapasowa</a></p>
+<div id="ov"></div>
+<script>
+var COLORS=["#e30613","#0a84ff","#34a853","#ff9500","#8e44ad","#2c2c2e"];
+var cards=[];
+try{cards=JSON.parse(localStorage.getItem("cards")||"[]")}catch(e){cards=[]}
+function save(){try{localStorage.setItem("cards",JSON.stringify(cards))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var $=function(i){return document.getElementById(i)};
+function render(){
+  var l=$("list");
+  if(!cards.length){l.innerHTML='<div class="empty">Nie masz jeszcze żadnych kart.<br>Kliknij „+ Dodaj”, np. Żabka albo Biedronka.</div>';return}
+  l.innerHTML=cards.map(function(c,i){return '<div class="card" data-i="'+i+'" style="background:'+c.color+'"><b>'+esc(c.name)+'</b><span>'+esc(c.num)+'</span></div>'}).join("");
+  [].forEach.call(l.querySelectorAll(".card"),function(el){el.onclick=function(){show(+el.dataset.i)}});
+}
+function drawCode(svg,c){
+  if(c.type==="QR"){
+    var q=qrcode(0,"M");q.addData(c.num);q.make();
+    svg.outerHTML=q.createSvgTag({cellSize:6,margin:0,scalable:true}).replace("<svg",'<svg style="width:220px;height:220px"');
+    return;
+  }
+  try{JsBarcode(svg,c.num,{format:c.type,displayValue:true,background:"#fff",lineColor:"#000",margin:6,width:2.4,height:110,fontSize:18})}
+  catch(e){try{JsBarcode(svg,c.num,{format:"CODE128",displayValue:true,background:"#fff",width:2.4,height:110})}catch(x){}}
+}
+function show(i){
+  var c=cards[i],o=$("ov");
+  o.innerHTML='<button class="sec" id="back">← Wróć</button><h1 style="margin-top:16px">'+esc(c.name)+'</h1><div class="code"><svg id="bc"></svg></div><p class="hint">Pokaż ten ekran czytnikowi przy kasie. Jeśli kod się nie skanuje, ustaw jasność ekranu na maksimum.</p><div class="cols"><button class="sec" id="ed">Edytuj</button><button class="del" id="rm">Usuń</button></div>';
+  o.classList.add("on");drawCode($("bc"),c);
+  $("back").onclick=close;$("ed").onclick=function(){form(i)};
+  $("rm").onclick=function(){if(confirm("Usunąć kartę „"+c.name+"”?")){cards.splice(i,1);save();render();close()}};
+}
+function close(){stopScan();$("ov").classList.remove("on")}
+var scn=null;
+function stopScan(){if(scn){var s=scn;scn=null;s.stop().then(function(){s.clear()}).catch(function(){})}}
+function startScan(){
+  var rd=$("rd");
+  if(!window.Html5Qrcode){rd.textContent="Skaner się nie załadował. Wpisz numer ręcznie.";return}
+  if(scn){return}
+  rd.innerHTML='<div id="rdr" style="border-radius:12px;overflow:hidden"></div><p class="hint">Skieruj aparat na kod kreskowy lub QR na karcie.</p>';
+  var F=Html5QrcodeSupportedFormats;
+  scn=new Html5Qrcode("rdr",{formatsToSupport:[F.EAN_13,F.EAN_8,F.CODE_128,F.CODE_39,F.QR_CODE,F.UPC_A,F.UPC_E,F.ITF],verbose:false});
+  scn.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:160}},function(txt,res){
+    var f=res&&res.result&&res.result.format&&res.result.format.formatName;
+    var m={QR_CODE:"QR",EAN_13:"EAN13",CODE_39:"CODE39"};
+    $("u").value=txt;$("t").value=m[f]||"CODE128";
+    stopScan();$("rd").innerHTML='<p class="hint">Zeskanowano ✓</p>';
+  },function(){}).catch(function(){scn=null;rd.textContent="Brak dostępu do aparatu. Zezwól na aparat dla Safari albo wpisz numer ręcznie."});
+}
+function form(i){
+  var c=i==null?{name:"",num:"",type:"CODE128",color:COLORS[0]}:cards[i],o=$("ov");
+  o.innerHTML='<button class="sec" id="back">Anuluj</button><h1 style="margin-top:16px">'+(i==null?"Nowa karta":"Edytuj kartę")+'</h1>'+
+  '<label>Nazwa</label><input id="n" value="'+esc(c.name)+'" placeholder="np. Żabka">'+
+  '<label>Numer karty (ten pod kodem kreskowym)</label><input id="u" value="'+esc(c.num)+'" inputmode="numeric" placeholder="np. 2000012345678">'+
+  '<button class="sec" id="sc" style="margin-top:8px;width:100%">📷 Zeskanuj kod aparatem</button><div id="rd" style="margin-top:8px"></div>'+
+  '<label>Rodzaj kodu</label><select id="t"><option value="CODE128">Kod kreskowy (zwykły, najczęstszy)</option><option value="EAN13">Kod kreskowy EAN-13 (13 cyfr)</option><option value="CODE39">Kod kreskowy Code 39</option><option value="QR">Kod QR</option></select>'+
+  '<label>Kolor</label><div class="sw" id="sw">'+COLORS.map(function(k){return '<i data-k="'+k+'" style="background:'+k+'"></i>'}).join("")+'</div>'+
+  '<div class="cols"><button id="ok">Zapisz</button></div>';
+  o.classList.add("on");$("t").value=c.type;$("sc").onclick=startScan;
+  var col=c.color;
+  function sw(){[].forEach.call($("sw").children,function(e){e.className=e.dataset.k===col?"on":""})}
+  sw();[].forEach.call($("sw").children,function(e){e.onclick=function(){col=e.dataset.k;sw()}});
+  $("back").onclick=function(){stopScan();i==null?close():show(i)};
+  $("ok").onclick=function(){
+    var n=$("n").value.trim(),u=$("u").value.trim();
+    if(!n||!u){alert("Wpisz nazwę i numer karty.");return}
+    stopScan();var d={name:n,num:u,type:$("t").value,color:col};
+    if(i==null)cards.push(d);else cards[i]=d;
+    save();render();i==null?close():show(i);
+  };
+}
+function backup(){
+  var o=$("ov");
+  o.innerHTML='<button class="sec" id="back">← Wróć</button><h1 style="margin-top:16px">Kopia zapasowa</h1><p class="hint" style="text-align:left">Skopiuj ten tekst i zapisz go np. w Notatkach. Żeby przywrócić karty, wklej go poniżej i kliknij „Przywróć”.</p><textarea id="tx" rows="10">'+esc(JSON.stringify(cards))+'</textarea><div class="cols"><button id="rs">Przywróć</button></div>';
+  o.classList.add("on");$("back").onclick=close;
+  $("rs").onclick=function(){try{var a=JSON.parse($("tx").value);if(!Array.isArray(a))throw 0;cards=a;save();render();close()}catch(e){alert("To nie wygląda na poprawną kopię.")}};
+}
+$("add").onclick=function(){form(null)};
+$("bk").onclick=function(e){e.preventDefault();backup()};
+render();
+</script>
+</body>
+</html>
